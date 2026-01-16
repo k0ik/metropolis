@@ -3,397 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cube Metropolis</title>
+    <title>Monochrome Deco - Final Cityscape</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: #1a1a2e;
-        }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-        #info {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.5);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 14px;
-        }
-        #info .title {
-            opacity: 0.75;
-            margin-bottom: 5px;
-        }
-        #info .subtitle {
-            opacity: 0.5;
-            font-size: 11px;
-        }
+        body { margin: 0; overflow: hidden; background: #000; }
+        canvas { display: block; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
-    <div id="info">
-        <div class="title">Cube Metropolis</div>
-        <div class="subtitle">Dense City Block</div>
-    </div>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x1a1a2e);
-        scene.fog = new THREE.Fog(0x1a1a2e, 20, 100);
+        scene.background = new THREE.Color(0x000000);
+        scene.fog = new THREE.Fog(0x000000, 30, 95); 
 
-        function createWindowTextureForStyle() {
+        // --- WINDOW TEXTURE GENERATOR ---
+        function createStochasticTexture() {
             const canvas = document.createElement('canvas');
-            const scale = 256;
-            canvas.width = scale;
-            canvas.height = scale;
+            const res = 512; canvas.width = res; canvas.height = res;
             const ctx = canvas.getContext('2d');
-            
-            ctx.fillStyle = '#2a3a4a';
-            ctx.fillRect(0, 0, scale, scale);
-            
-            const windowWidth = 0.65;
-            const ceilingSpace = 0.15;
-            const floorSpace = 0.25;
-            const windowHeight = 1 - ceilingSpace - floorSpace;
-            
-            const windowStartX = (1 - windowWidth) / 2 * scale;
-            const windowWidthPx = windowWidth * scale;
-            const windowStartY = ceilingSpace * scale;
-            const windowHeightPx = windowHeight * scale;
-            
-            ctx.fillStyle = '#ffebb3';
-            ctx.fillRect(windowStartX, windowStartY, windowWidthPx, windowHeightPx);
-            
-            ctx.strokeStyle = '#1a2a3a';
-            ctx.lineWidth = Math.max(2, windowWidthPx * 0.05);
-            ctx.strokeRect(windowStartX, windowStartY, windowWidthPx, windowHeightPx);
-            
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            ctx.fillRect(0, (ceilingSpace + windowHeight) * scale, scale, floorSpace * scale);
-            
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, res, res);
+            const grid = 12; const padding = 8;
+            const winSize = (res - (padding * (grid + 1))) / grid;
+            const threshold = 0.4 + Math.random() * 0.35; 
+            for(let y=0; y<grid; y++) {
+                for(let x=0; x<grid; x++) {
+                    if (Math.random() < threshold) {
+                        const b = 120 + Math.floor(Math.random() * 80);
+                        ctx.fillStyle = `rgb(${b},${b},${b})`;
+                        ctx.fillRect(padding + x*(winSize+padding), padding + y*(winSize+padding), winSize, winSize);
+                    }
+                }
+            }
             const texture = new THREE.CanvasTexture(canvas);
-            texture.wrapS = THREE.RepeatWrapping;
-            texture.wrapT = THREE.RepeatWrapping;
-            texture.magFilter = THREE.NearestFilter;
-            texture.minFilter = THREE.NearestFilter;
-            texture.needsUpdate = true;
-            
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            texture.magFilter = texture.minFilter = THREE.NearestFilter;
             return texture;
         }
-        
-        const windowTexture = createWindowTextureForStyle();
-
-        const aspect = window.innerWidth / window.innerHeight;
-        const frustumSize = 130;
-        const camera = new THREE.OrthographicCamera(
-            frustumSize * aspect / -2,
-            frustumSize * aspect / 2,
-            frustumSize / 2,
-            frustumSize / -2,
-            0.1,
-            1000
-        );
-        camera.position.set(40, 50, 40);
-        camera.lookAt(0, 12, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        const ambientLight = new THREE.AmbientLight(0x404060, 0.5);
-        scene.add(ambientLight);
+        // --- FIXED CAMERA (Fixes black triangle clipping) ---
+        const aspect = window.innerWidth / window.innerHeight;
+        const frustumSize = 26; 
+        const camera = new THREE.OrthographicCamera(
+            frustumSize * aspect / -2, 
+            frustumSize * aspect / 2, 
+            frustumSize / 2, 
+            frustumSize / -2, 
+            -100, // Near plane moved back to prevent clipping
+            1000  // Far plane
+        );
+        camera.position.set(40, 25, 40); 
+        camera.lookAt(0, -2, 0); 
 
-        const mainLight = new THREE.DirectionalLight(0xffffff, 1);
-        mainLight.position.set(10, 20, 10);
-        mainLight.castShadow = true;
-        mainLight.shadow.camera.left = -30;
-        mainLight.shadow.camera.right = 30;
-        mainLight.shadow.camera.top = 30;
-        mainLight.shadow.camera.bottom = -30;
-        mainLight.shadow.mapSize.width = 2048;
-        mainLight.shadow.mapSize.height = 2048;
-        scene.add(mainLight);
+        const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+        sun.position.set(20, 50, 15);
+        scene.add(sun);
+        const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+        fill.position.set(-20, 10, -20);
+        scene.add(fill);
 
-        const fillLight = new THREE.DirectionalLight(0x4444ff, 0.3);
-        fillLight.position.set(-10, 10, -10);
-        scene.add(fillLight);
+        // --- MATERIALS ---
+        const sideMat = new THREE.MeshStandardMaterial({ color: 0x040404, roughness: 0.5 });
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 1.0 });
+        const boxMaterials = [sideMat, sideMat, roofMat, roofMat, sideMat, sideMat]; 
+        
+        const towers = [];
+        const beaconMaterials = []; 
+        const loopX = 140; 
+        const loopZ = 100;
 
-        const groundGeometry = new THREE.PlaneGeometry(100, 100);
-        const groundMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x0f0f1e,
-            roughness: 0.8,
-            metalness: 0.2
-        });
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = -Math.PI / 2;
-        ground.receiveShadow = true;
-        scene.add(ground);
-
-        // Movement parameters for conveyor belt effect
-        const moveSpeed = 0.08;
-        const respawnDistance = 60;
-        const spawnDistance = 60;
-
-        function createTower(x, z, baseWidth, baseDepth) {
+        // --- TOWER GENERATOR ---
+        function createTower(x, z) {
             const tower = new THREE.Group();
+            const tex = createStochasticTexture();
+            const isHero = Math.random() > 0.92; 
             
-            const buildingType = Math.random();
-            let targetFloors;
+            const floors = (isHero ? 45 : 8) + Math.random() * 30;
+            const targetHeight = floors * (1/3.5); 
             
-            if (buildingType < 0.1) {
-                targetFloors = 8 + Math.floor(Math.random() * 8);
-            } else if (buildingType < 0.3) {
-                targetFloors = 16 + Math.floor(Math.random() * 12);
-            } else if (buildingType < 0.6) {
-                targetFloors = 28 + Math.floor(Math.random() * 18);
-            } else {
-                targetFloors = 46 + Math.floor(Math.random() * 35);
+            let w = (isHero ? 5.5 : 3.8) + Math.random() * 3.5;
+            let d = (isHero ? 5.5 : 3.8) + Math.random() * 3.5;
+            let currentY = 0, prevW = w, prevD = d;
+
+            while (currentY < targetHeight) {
+                const shrink = 0.12 + Math.random() * 0.1;
+                let cw = Math.max(1.2, prevW * (1 - shrink));
+                let cd = Math.max(1.2, prevD * (1 - shrink));
+                let ch = 1.4 + Math.random() * 2.2; 
+
+                const core = new THREE.Mesh(new THREE.BoxGeometry(cw, ch, cd), boxMaterials);
+                core.position.y = currentY + ch/2;
+                tower.add(core);
+
+                if (isHero && cw > 2.5) {
+                    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.15, ch, cd + 0.2), roofMat);
+                    fin.position.y = currentY + ch/2;
+                    tower.add(fin);
+                }
+
+                const winMat = new THREE.MeshStandardMaterial({ 
+                    map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.4 
+                });
+                winMat.map.repeat.set(cw * 0.5, ch * 0.5);
+                winMat.map.offset.set(Math.random(), Math.random());
+
+                const createSide = (sw, sh, px, pz, ry) => {
+                    const p = new THREE.Mesh(new THREE.PlaneGeometry(sw - 0.12, sh - 0.12), winMat);
+                    p.position.set(px, currentY + ch/2, pz);
+                    p.rotation.y = ry;
+                    tower.add(p);
+                };
+
+                createSide(cw, ch, 0, cd/2 + 0.01, 0);
+                createSide(cw, ch, 0, -cd/2 - 0.01, Math.PI);
+                createSide(cd, ch, cw/2 + 0.01, 0, Math.PI/2);
+                createSide(cd, ch, -cw/2 - 0.01, 0, -Math.PI/2);
+
+                currentY += ch; prevW = cw; prevD = cd;
             }
-            
-            const floorHeight = 1.0 / 3.5;
-            const targetHeight = targetFloors * floorHeight;
-            
-            let currentY = 0;
-            let prevWidth = baseWidth;
-            let prevDepth = baseDepth;
-            
-            const styleRandom = Math.random();
-            let windowsPerMeterHorizontal;
-            const floorsPerMeter = 3.5;
-            
-            if (styleRandom < 0.35) {
-                windowsPerMeterHorizontal = 4.5;
-            } else if (styleRandom < 0.7) {
-                windowsPerMeterHorizontal = 3.0;
-            } else {
-                windowsPerMeterHorizontal = 2.0;
-            }
 
-            const hasStraightSides = Math.random() < 0.35;
+            if (isHero) {
+                const spireH = 4 + Math.random() * 6;
+                const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.3, spireH, 4), roofMat);
+                spire.position.y = currentY + spireH/2;
+                tower.add(spire);
 
-            let cubeCount = 0;
-            const minCubes = 2;
-            
-            while (currentY < targetHeight || cubeCount < minCubes) {
-                const remainingHeight = targetHeight - currentY;
-                const isTopSection = currentY > targetHeight * 0.75;
-                const isRoof = Math.random() < 0.25 && cubeCount >= minCubes;
-                
-                const shrinkAmount = hasStraightSides ? 0 : (0.05 + Math.random() * 0.15);
-                let width = prevWidth * (1 - shrinkAmount);
-                let depth = prevDepth * (1 - shrinkAmount);
-                
-                const minWidth = isTopSection ? 1.2 : 2.0;
-                width = Math.max(minWidth, width);
-                depth = Math.max(minWidth, depth);
-                
-                let height;
-                if (isRoof) {
-                    height = 0.3 + Math.random() * 0.5;
-                    width *= 1.1 + Math.random() * 0.15;
-                } else {
-                    height = Math.min(remainingHeight, 1.5 + Math.random() * 2.5);
-                    if (cubeCount < minCubes) {
-                        height = Math.max(height, 1.0);
-                    }
-                }
-                
-                if (currentY + height > targetHeight && cubeCount >= minCubes) {
-                    height = targetHeight - currentY;
-                }
-                
-                if (height < 0.2 && cubeCount >= minCubes) break;
+                const beaconMat = new THREE.MeshBasicMaterial({ color: 0xff1111, transparent: true });
+                beaconMat.userData = { 
+                    phaseOffset: Math.random() * Math.PI * 2,
+                    speed: 1.5 + Math.random() * 3 
+                };
 
-                const geometry = new THREE.BoxGeometry(width, height, depth);
-                
-                let materials;
-                
-                if (isRoof) {
-                    const roofColors = [0x1a2a3a, 0x2a3a4a, 0x3a4a5a];
-                    const roofColor = roofColors[Math.floor(Math.random() * roofColors.length)];
-                    const roofMat = new THREE.MeshStandardMaterial({ 
-                        color: roofColor,
-                        roughness: 0.8,
-                        metalness: 0.2
-                    });
-                    materials = [roofMat, roofMat, roofMat, roofMat, roofMat, roofMat];
-                } else {
-                    const solidMat = new THREE.MeshStandardMaterial({ 
-                        color: 0x2a3a4a,
-                        roughness: 0.8,
-                        metalness: 0.2
-                    });
-                    materials = [solidMat, solidMat, solidMat, solidMat, solidMat, solidMat];
-                }
-
-                const cube = new THREE.Mesh(geometry, materials);
-                cube.position.y = currentY + height / 2;
-                cube.position.x = 0;
-                cube.position.z = 0;
-                
-                cube.castShadow = true;
-                cube.receiveShadow = true;
-                
-                tower.add(cube);
-                
-                cubeCount++;
-                
-                if (!isRoof) {
-                    const border = 0.3;
-                    const insetWidth = width - 2 * border;
-                    const insetHeight = height - 2 * border;
-                    const insetDepth = depth - 2 * border;
-                    
-                    if (insetWidth > 0 && insetHeight > 0) {
-                        const windowsX = Math.max(1, Math.round(insetWidth * windowsPerMeterHorizontal));
-                        const windowsY = Math.max(1, Math.round(insetHeight * floorsPerMeter));
-                        
-                        const towerWindowTex = windowTexture.clone();
-                        towerWindowTex.repeat.set(windowsX, windowsY);
-                        
-                        const windowMat = new THREE.MeshStandardMaterial({ 
-                            map: towerWindowTex,
-                            roughness: 0.7,
-                            metalness: 0.3
-                        });
-                        
-                        const offset = 0.01;
-                        
-                        const frontGeo = new THREE.PlaneGeometry(insetWidth, insetHeight);
-                        const frontPlane = new THREE.Mesh(frontGeo, windowMat.clone());
-                        frontPlane.position.set(0, currentY + height / 2, depth / 2 + offset);
-                        tower.add(frontPlane);
-                        
-                        const backGeo = new THREE.PlaneGeometry(insetWidth, insetHeight);
-                        const backPlane = new THREE.Mesh(backGeo, windowMat.clone());
-                        backPlane.position.set(0, currentY + height / 2, -depth / 2 - offset);
-                        backPlane.rotation.y = Math.PI;
-                        tower.add(backPlane);
-                        
-                        const rightGeo = new THREE.PlaneGeometry(insetDepth, insetHeight);
-                        const rightPlane = new THREE.Mesh(rightGeo, windowMat.clone());
-                        rightPlane.position.set(width / 2 + offset, currentY + height / 2, 0);
-                        rightPlane.rotation.y = Math.PI / 2;
-                        tower.add(rightPlane);
-                        
-                        const leftGeo = new THREE.PlaneGeometry(insetDepth, insetHeight);
-                        const leftPlane = new THREE.Mesh(leftGeo, windowMat.clone());
-                        leftPlane.position.set(-width / 2 - offset, currentY + height / 2, 0);
-                        leftPlane.rotation.y = -Math.PI / 2;
-                        tower.add(leftPlane);
-                    }
-                }
-                
-                currentY += height;
-                
-                prevWidth = isRoof ? width / 1.125 : width;
-                prevDepth = isRoof ? depth / 1.125 : depth;
+                const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), beaconMat);
+                beacon.position.y = currentY + spireH;
+                tower.add(beacon);
+                beaconMaterials.push(beaconMat);
             }
 
             tower.position.set(x, 0, z);
             return tower;
         }
 
-        const towers = [];
-        const occupiedSpaces = [];
-        const blockRadius = 14;
-        
-        function checkCollision(x, z, width, depth) {
-            for (let space of occupiedSpaces) {
-                const dx = Math.abs(x - space.x);
-                const dz = Math.abs(z - space.z);
-                const minDx = (width + space.width) / 2 + 0.8;
-                const minDz = (depth + space.depth) / 2 + 0.8;
-                
-                if (dx < minDx && dz < minDz) {
-                    return true;
-                }
+        // --- INITIALIZATION ---
+        const rows = 16; 
+        const cols = 22;
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const x = (c / cols - 0.5) * loopX + (Math.random() - 0.5) * 4;
+                const z = (r / rows - 0.5) * loopZ + (Math.random() - 0.5) * 4;
+                const t = createTower(x, z);
+                towers.push(t); scene.add(t);
             }
-            return false;
-        }
-        
-        function tryRandomPlacement(minSize, maxSize, attempts) {
-            for (let i = 0; i < attempts; i++) {
-                const width = minSize + Math.random() * (maxSize - minSize);
-                const depth = minSize + Math.random() * (maxSize - minSize);
-                const x = (Math.random() - 0.5) * blockRadius * 4;
-                const z = (Math.random() - 0.5) * blockRadius * 4;
-                
-                if (!checkCollision(x, z, width, depth)) {
-                    occupiedSpaces.push({ x, z, width, depth });
-                    const tower = createTower(x, z, width, depth);
-                    tower.userData = { baseX: x, baseZ: z, width, depth };
-                    towers.push(tower);
-                    scene.add(tower);
-                    return true;
-                }
-            }
-            return false;
-        }
-        
-        function spawnBuilding(minSize, maxSize) {
-            const width = minSize + Math.random() * (maxSize - minSize);
-            const depth = minSize + Math.random() * (maxSize - minSize);
-            const x = spawnDistance + (Math.random() - 0.5) * blockRadius * 2;
-            const z = -spawnDistance + (Math.random() - 0.5) * blockRadius * 2;
-            
-            const tower = createTower(x, z, width, depth);
-            tower.userData = { baseX: x, baseZ: z, width, depth };
-            towers.push(tower);
-            scene.add(tower);
-        }
-        
-        for (let i = 0; i < 8; i++) {
-            tryRandomPlacement(7, 9, 50);
-        }
-        
-        for (let i = 0; i < 10; i++) {
-            tryRandomPlacement(5, 7, 50);
-        }
-        
-        for (let i = 0; i < 12; i++) {
-            tryRandomPlacement(3, 5, 50);
         }
 
-        let time = 0;
+        const clock = new THREE.Clock();
+
         function animate() {
             requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
             
-            // Move all buildings along single axis (negative X only)
-            for (let i = towers.length - 1; i >= 0; i--) {
-                const tower = towers[i];
-                tower.position.x -= moveSpeed;
-                
-                // Check if building is off-screen (left side)
-                if (tower.position.x < -respawnDistance) {
-                    // Respawn on opposite side (right side) maintaining Y and Z
-                    const spread = blockRadius * 4;
-                    tower.position.x = spawnDistance + (Math.random() - 0.5) * spread;
-                    // Keep the same Z position so buildings stay in their "lanes"
-                }
-            }
-            
+            // Pulse beacons asynchronously
+            beaconMaterials.forEach(m => {
+                const s = m.userData;
+                m.opacity = 0.3 + Math.pow(Math.sin(elapsedTime * s.speed + s.phaseOffset) * 0.5 + 0.5, 3.0);
+            });
+
+            towers.forEach(t => {
+                t.position.x -= 0.05;
+                if (t.position.x < -loopX/2) t.position.x += loopX;
+            });
             renderer.render(scene, camera);
         }
-
         animate();
 
         window.addEventListener('resize', () => {
             const aspect = window.innerWidth / window.innerHeight;
-            const frustumSize = 30;
             camera.left = frustumSize * aspect / -2;
             camera.right = frustumSize * aspect / 2;
-            camera.top = frustumSize / 2;
-            camera.bottom = frustumSize / -2;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
